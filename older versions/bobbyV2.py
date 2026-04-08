@@ -10,8 +10,6 @@ materialWorth = {chess.KING:0,
                  chess.PAWN:10}    #Pawn
 
 
-
-
 def evalaute(board):   
 
     pieceScore = 0
