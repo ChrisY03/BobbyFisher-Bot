@@ -70,7 +70,7 @@ def orderMoves(board, moves) -> list:
         movePieceType = board.piece_type_at(move.from_square)
         capturePieceType = board.is_capture(move)
 
-        #capture oppents most valauable with our weakest
+        #capture oppents most valuable with our weakest
         if board.is_capture(move):
             if board.is_en_passant(move):
                 capturePieceType = chess.PAWN

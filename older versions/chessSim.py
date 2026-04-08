@@ -3,7 +3,7 @@ from bobbyV1 import get_random_move as vR, get_next_move as v1
 from bobbyV2 import get_next_move as v2
 from bobbyV3 import get_next_move as v3
 from bobbyV4 import get_next_move as v4
-from team_alphaV4 import get_next_move as Ba
+#from team_alphaV4 import get_next_move as Ba
 
 
 
@@ -29,12 +29,12 @@ bobbyV1 = v1
 bobbyV2 = v2
 bobbyV3 = v3
 bobbyV4 = v4
-team_alphaV4 = Ba
+#team_alphaV4 = Ba
 
 bobbyVR = vR
 
 print("new model as white\n")
-print(play_match(v4,Ba,3))
+print(play_match(v4,v3,3))
 
 print("new model as black\n")
-print(play_match(Ba,v4,3))
+print(play_match(v3,v4,3))
