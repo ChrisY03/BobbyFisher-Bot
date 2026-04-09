@@ -1,6 +1,9 @@
 """
 team_alpha.py  —  Chess Bot using Minimax + Alpha-Beta Pruning
-Heuristic: Material value
+Heuristic: Material value , 
+    Piece mobility, 
+    King Safety, 
+    Move ordering
 
 Install dependency:  pip install python-chess
 """
@@ -9,13 +12,39 @@ import chess
 
 # ── Piece values (centipawns) ─────────────────────────────────────────────────
 PIECE_VALUES = {
-    chess.PAWN:   10,
-    chess.KNIGHT: 30,
-    chess.BISHOP: 30,
-    chess.ROOK:   50,
-    chess.QUEEN:  90,
+    chess.PAWN:   100,
+    chess.KNIGHT: 300,
+    chess.BISHOP: 300,
+    chess.ROOK:   500,
+    chess.QUEEN:  900,
     chess.KING:   0,
 }
+
+
+PAWN_CASTLE_POSITION = {
+    chess.G1 : [chess.F2,chess.G2,chess.H2], #white kingside
+    chess.G8 : [chess.F7,chess.G7,chess.H7], #black queenside
+    chess.C1 : [chess.A2,chess.B2,chess.C2],    #White kingside
+    chess.C8 : [chess.A7,chess.B7,chess.C7] #black kingside
+}
+KING_CASTLE_POSITION = [chess.G1,chess.G8,chess.C1,chess.C8]
+KING_CENTER_POSITION = {chess.WHITE : [chess.D1,chess.E1,chess.D2,chess.E2],
+                        chess.BLACK : [chess.D7,chess.E7,chess.D8,chess.E8]}
+
+def KingSafety(board, color) -> float:
+    score = 0
+    king_sq = board.king(color)
+    if board.has_castling_rights(color):
+        score += 5
+    if king_sq in KING_CASTLE_POSITION:
+        score += 50
+        for pawn_sq in PAWN_CASTLE_POSITION[king_sq]:
+            if board.piece_type_at(pawn_sq) == chess.PAWN and board.color_at(pawn_sq) == color:
+                score += 5
+    if king_sq in KING_CENTER_POSITION[color]:
+        score -= 30 
+    return score
+        
 
 # ── Heuristic ─────────────────────────────────────────────────────────────────
 def evaluate(board: chess.Board) -> float:
@@ -29,7 +58,7 @@ def evaluate(board: chess.Board) -> float:
     if board.is_checkmate():
         # The side to move is in checkmate — they lose
         return -99999 if board.turn == chess.WHITE else 99999
-    if board.is_stalemate() or board.is_insufficient_material():
+    if board.is_stalemate() or board.is_insufficient_material() or board.is_repetition(3):
         return 0
 
     # ── Example Heuristic ─────────────────────────────────────────────────────────
@@ -53,13 +82,12 @@ def evaluate(board: chess.Board) -> float:
     # Your code goes here
 
      #fucntion to count legal moves for given color
-    mobWeight = 2
     if chess.WHITE == board.turn:
-        mobilityScore = board.legal_moves.count() * mobWeight
+        score += board.legal_moves.count() 
     else:
-        mobilityScore = -board.legal_moves.count() * mobWeight
-
-    score += mobilityScore
+        score -= board.legal_moves.count()
+    
+    score += KingSafety(board, chess.WHITE) - KingSafety(board, chess.BLACK)
 
     return score
 
@@ -87,6 +115,7 @@ def orderMoves(board, moves) -> list:
             moveScore += 50
         
         #penalise moving pieces to square that is being attacked by oppenents pawn
+        """""
         board.push(move)
         opponent = board.turn
         destination = move.to_square
@@ -97,6 +126,7 @@ def orderMoves(board, moves) -> list:
                 moveScore -= PIECE_VALUES[board.piece_type_at(destination)]
                 break
         board.pop()
+        """
         
         scoreMoves.append((moveScore,move))
     scoreMoves.sort(key=lambda x: x[0], reverse=True)
@@ -200,7 +230,7 @@ def get_next_move(board: chess.Board,
             best_score, best_move = score, move
         elif not maximizing and score < best_score:
             best_score, best_move = score, move
-
+    
     return best_move
 
 
