@@ -20,7 +20,8 @@ PIECE_VALUES = {
     chess.KING:   0,
 }
 
-Killer_Moves  = []
+MAX_PLY = 64
+Killer_Moves  = [[None,None] for _ in range(MAX_PLY)]
 
 
 PAWN_CASTLE_POSITION = {
@@ -103,12 +104,11 @@ def evaluate(board: chess.Board) -> float:
 
     return score
 
-def orderMoves(board, moves) -> list:
+def orderMoves(board, moves, ply) -> list:
     scoreMoves=[]
     for move in moves:
         moveScore = 0
         movePieceType = board.piece_type_at(move.from_square)
-        capturePieceType = board.is_capture(move)
 
         #capture oppents most valuable with our weakest
         if board.is_capture(move):
@@ -125,6 +125,9 @@ def orderMoves(board, moves) -> list:
         
         if board.gives_check(move):
             moveScore += 50
+
+        if move in Killer_Moves[ply] and not board.is_capture(move):
+            moveScore += 200
         
         #penalise moving pieces to square that is being attacked by oppenents pawn
         """""
@@ -144,7 +147,7 @@ def orderMoves(board, moves) -> list:
     scoreMoves.sort(key=lambda x: x[0], reverse=True)
     return [move for score, move in scoreMoves]
 
-def SearchAllCaptures(board, alpha, beta) -> float:
+def SearchAllCaptures(board, alpha, beta,ply) -> float:
     best = evaluate(board)
     captureMoves = []
 
@@ -166,9 +169,9 @@ def SearchAllCaptures(board, alpha, beta) -> float:
 
     if board.turn == chess.WHITE:
         best = float('-inf')
-        for move in orderMoves(board,captureMoves):
+        for move in orderMoves(board,captureMoves,ply):
             board.push(move)
-            best = max(best, SearchAllCaptures(board, alpha, beta))
+            best = max(best, SearchAllCaptures(board, alpha, beta,ply))
             board.pop()
             alpha = max(alpha, best)
             if beta <= alpha:
@@ -176,9 +179,9 @@ def SearchAllCaptures(board, alpha, beta) -> float:
         return best
     else:
         best = float('inf')
-        for move in orderMoves(board,captureMoves):
+        for move in orderMoves(board,captureMoves,ply):
             board.push(move)
-            best = min(best, SearchAllCaptures(board, alpha, beta))
+            best = min(best, SearchAllCaptures(board, alpha, beta,ply))
             board.pop()
             beta = min(beta, best)
             if beta <= alpha:
@@ -194,28 +197,35 @@ def minimax(board: chess.Board, depth: int,
     maximizing=True means we are searching for the best move for White.
     """
     if depth == 0 or board.is_game_over():
-        return SearchAllCaptures(board,alpha,beta)
+        return SearchAllCaptures(board,alpha,beta,ply)
+    
 
     if maximizing:
         best = float('-inf')
-        for move in orderMoves(board, board.legal_moves):
+        for move in orderMoves(board, board.legal_moves, ply):
             board.push(move)
             best = max(best, minimax(board, depth - 1, alpha, beta, False, ply + 1))
             board.pop()
             alpha = max(alpha, best)
             if beta <= alpha:
-                if not board.is_capture(move):
-
+                if not board.is_capture(move) and move not in Killer_Moves[ply][0]:
+                    if Killer_Moves[ply][0]:
+                        Killer_Moves[ply][1] = Killer_Moves[ply][0]
+                    Killer_Moves[ply][0] = move
                 break       # Beta cutoff — opponent won't allow this path
         return best
     else:
         best = float('inf')
-        for move in orderMoves(board, board.legal_moves):
+        for move in orderMoves(board, board.legal_moves, ply):
             board.push(move)
             best = min(best, minimax(board, depth - 1, alpha, beta, True, ply + 1))
             board.pop()
             beta = min(beta, best)
             if beta <= alpha:
+                if not board.is_capture(move) and move not in Killer_Moves[ply][0]:
+                    if Killer_Moves[ply][0]:
+                        Killer_Moves[ply][1] = Killer_Moves[ply][0]
+                    Killer_Moves[ply][0] = move
                 break       # Alpha cutoff
         return best
 
