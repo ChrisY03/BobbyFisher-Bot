@@ -23,11 +23,18 @@ PIECE_VALUES = {
 
 PAWN_CASTLE_POSITION = {
     chess.G1 : [chess.F2,chess.G2,chess.H2], #white kingside
-    chess.G8 : [chess.F7,chess.G7,chess.H7], #black queenside
-    chess.C1 : [chess.A2,chess.B2,chess.C2],    #White kingside
-    chess.C8 : [chess.A7,chess.B7,chess.C7] #black kingside
+    chess.G8 : [chess.F7,chess.G7,chess.H7], #black kingside
+    chess.C1 : [chess.A2,chess.B2,chess.C2],    #White queenside
+    chess.C8 : [chess.A7,chess.B7,chess.C7] #black queenside
 }
 KING_CASTLE_POSITION = [chess.G1,chess.G8,chess.C1,chess.C8]
+ROOK_CASTLE_POSITION = { 
+    chess.G1 : chess.F1, #white kingside
+    chess.G8 : chess.F8, #black kingside
+    chess.C1 : chess.D1, #White queenside
+    chess.C8 : chess.D8 #black queenside
+    }
+
 KING_CENTER_POSITION = {chess.WHITE : [chess.D1,chess.E1,chess.D2,chess.E2],
                         chess.BLACK : [chess.D7,chess.E7,chess.D8,chess.E8]}
 
@@ -37,7 +44,9 @@ def KingSafety(board, color) -> float:
     if board.has_castling_rights(color):
         score += 5
     if king_sq in KING_CASTLE_POSITION:
-        score += 50
+        score += 30
+        if board.piece_type_at(ROOK_CASTLE_POSITION[king_sq]):
+            score += 10
         for pawn_sq in PAWN_CASTLE_POSITION[king_sq]:
             if board.piece_type_at(pawn_sq) == chess.PAWN and board.color_at(pawn_sq) == color:
                 score += 5
