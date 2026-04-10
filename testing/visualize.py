@@ -570,8 +570,8 @@ def main():
         sys.path.insert(0, script_dir)
 
     try:
-        team_alpha = importlib.import_module("v5")
-        team_beta  = importlib.import_module("v4")
+        team_alpha = importlib.import_module("v6")
+        team_beta  = importlib.import_module("v5")
     except ModuleNotFoundError as e:
         print(f"Error importing bot: {e}")
         print("Make sure team_alpha.py and team_beta.py are in the same folder as visualize.py")

@@ -243,7 +243,7 @@ def get_next_move(board: chess.Board,
     best_score = float('-inf') if maximizing else float('inf')
 
     b = board.copy()   # never modify the board passed in
-    for move in orderMoves(board, b.legal_moves):
+    for move in orderMoves(board, b.legal_moves,0):
         b.push(move)
         score = minimax(b, depth - 1,
                         float('-inf'), float('inf'),
