@@ -10,6 +10,83 @@ Install dependency:  pip install python-chess
 
 import chess
 
+PAWN_TABLE = [
+      0,   0,   0,   0,   0,   0,   0,   0,
+     50,  50,  50,  50,  50,  50,  50,  50,
+     10,  10,  20,  30,  30,  20,  10,  10,
+      5,   5,  10,  25,  25,  10,   5,   5,
+      0,   0,   0,  20,  20,   0,   0,   0,
+      5,  -5, -10,   0,   0, -10,  -5,   5,
+      5,  10,  10, -20, -20,  10,  10,   5,
+      0,   0,   0,   0,   0,   0,   0,   0,
+]
+
+KNIGHT_TABLE = [
+    -50, -40, -30, -30, -30, -30, -40, -50,
+    -40, -20,   0,   5,   5,   0, -20, -40,
+    -30,   5,  10,  15,  15,  10,   5, -30,
+    -30,   0,  15,  20,  20,  15,   0, -30,
+    -30,   5,  15,  20,  20,  15,   5, -30,
+    -30,   0,  10,  15,  15,  10,   0, -30,
+    -40, -20,   0,   0,   0,   0, -20, -40,
+    -50, -40, -30, -30, -30, -30, -40, -50,
+]
+
+BISHOP_TABLE = [
+    -20, -10, -10, -10, -10, -10, -10, -20,
+    -10,   5,   0,   0,   0,   0,   5, -10,
+    -10,  10,  10,  10,  10,  10,  10, -10,
+    -10,   0,  10,  10,  10,  10,   0, -10,
+    -10,   5,   5,  10,  10,   5,   5, -10,
+    -10,   0,   5,  10,  10,   5,   0, -10,
+    -10,   0,   0,   0,   0,   0,   0, -10,
+    -20, -10, -10, -10, -10, -10, -10, -20,
+]
+
+ROOK_TABLE = [
+      0,   0,   5,  10,  10,   5,   0,   0,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+      5,  10,  10,  10,  10,  10,  10,   5,
+      0,   0,   0,   0,   0,   0,   0,   0,
+]
+
+QUEEN_TABLE = [
+    -20, -10, -10,  -5,  -5, -10, -10, -20,
+    -10,   0,   0,   0,   0,   5,   0, -10,
+    -10,   0,   5,   5,   5,   5,   5, -10,
+     -5,   0,   5,   5,   5,   5,   0,  -5,
+      0,   0,   5,   5,   5,   5,   0,  -5,
+    -10,   5,   5,   5,   5,   5,   0, -10,
+    -10,   0,   5,   0,   0,   0,   0, -10,
+    -20, -10, -10,  -5,  -5, -10, -10, -20,
+]
+
+KING_TABLE_MID = [
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -20, -30, -30, -40, -40, -30, -30, -20,
+    -10, -20, -20, -20, -20, -20, -20, -10,
+     20,  20,   0,   0,   0,   0,  20,  20,
+     20,  30,  10,   0,   0,  10,  30,  20,
+]
+
+KING_TABLE_END = [
+    -50, -40, -30, -20, -20, -30, -40, -50,
+    -30, -20, -10,   0,   0, -10, -20, -30,
+    -30, -10,  20,  30,  30,  20, -10, -30,
+    -30, -10,  30,  40,  40,  30, -10, -30,
+    -30, -10,  30,  40,  40,  30, -10, -30,
+    -30, -10,  20,  30,  30,  20, -10, -30,
+    -30, -30,   0,   0,   0,   0, -30, -30,
+    -50, -30, -30, -30, -30, -30, -30, -50,
+]
+
 # ── Piece values (centipawns) ─────────────────────────────────────────────────
 PIECE_VALUES = {
     chess.PAWN:   100,
@@ -19,6 +96,8 @@ PIECE_VALUES = {
     chess.QUEEN:  900,
     chess.KING:   0,
 }
+
+endgame_material_start = PIECE_VALUES[chess.ROOK] * 2 + PIECE_VALUES[chess.BISHOP] + PIECE_VALUES[chess.KNIGHT] 
 
 MAX_PLY = 64
 Killer_Moves  = [[None,None] for _ in range(MAX_PLY)]
@@ -57,7 +136,33 @@ def KingSafety(board, color) -> float:
     if king_sq in KING_CENTER_POSITION[color]:
         score -= 30 
     return score
-        
+
+def endgame_phase_weight(material_count_withut_pawns) -> float:
+    multiplier = 1 / endgame_material_start
+    return 1 - min(1, material_count_withut_pawns * multiplier)
+
+def get_pst_index(table, color, square) -> int:
+    if color == chess.WHITE:
+        rank = chess.square_rank(square)
+        file = chess.square_file(square)
+        rank = 7 - rank
+        square = rank * 8 + file
+    return table[square]    
+    
+def evaluatePST(table, pieceList, color) -> int:
+    value = 0
+    for i in pieceList:
+        value += get_pst_index(table, color, pieceList[i])
+    return value
+
+def evaluatePSTs(board, color, endgamePhaseWeight) -> int:
+    value = 0
+    value += evaluatePST(PAWN_TABLE, board.pieces(chess.PAWN, color), color)
+    value += evaluatePST(ROOK_TABLE, board.pieces(chess.ROOK, color), color)
+    value += evaluatePST(KNIGHT_TABLE, board.pieces(chess.KNIGHT, color), color)
+    value += evaluatePST(BISHOP_TABLE, board.pieces(chess.BISHOP, color),color)
+    value += evaluatePST(QUEEN_TABLE, board.pieces(chess.QUEEN, color),color)
+
 
 # ── Heuristic ─────────────────────────────────────────────────────────────────
 def evaluate(board: chess.Board) -> float:
@@ -68,30 +173,29 @@ def evaluate(board: chess.Board) -> float:
     Score > 0  =>  White is better.
     Score < 0  =>  Black is better.
     """
+
+
+
+
     if board.is_checkmate():
         # The side to move is in checkmate — they lose
         return -99999 if board.turn == chess.WHITE else 99999
     if board.is_stalemate() or board.is_insufficient_material() or board.is_repetition(3):
         return 0
 
-    # ── Example Heuristic ─────────────────────────────────────────────────────────
-    # The evaluation function counts the number of pieces White has minus the number
-    # of pieces Black has, multiplied by a value of 1.
+    whiteScore = 0
+    blackScore = 0
 
-    # In the minimax algorithm, this evaluation is applied at the leaf nodes and
-    # reflects the advantage of one player over the other. A positive score means
-    # White is in a better position, while a negative score indicates that Black
-    # is ahead.
-
-    # The algorithm itself does not need to care about the player's colour,
-    # because the evaluation function already represents the position from
-    # both players' perspectives.
-
-    score = 0
+    whiteMaterial, blackMaterial = 0
     for piece_type, value in PIECE_VALUES.items():
-        score += len(board.pieces(piece_type, chess.WHITE)) * value
-        score -= len(board.pieces(piece_type, chess.BLACK)) * value
+        whiteMaterial += len(board.pieces(piece_type, chess.WHITE)) * value
+        blackMaterial -= len(board.pieces(piece_type, chess.BLACK)) * value
 
+    whiteMaterialWithoutPawns = whiteMaterial - len(board.pieces(piece_type, chess.WHITE)) * PIECE_VALUES[chess.PAWN]
+    blackMaterialWithoutPawns = blackMaterial - len(board.pieces(piece_type, chess.BLACK)) * PIECE_VALUES[chess.PAWN]
+    whiteEndgamePhaseWeight = endgame_phase_weight(whiteMaterialWithoutPawns)
+    blackEndgamePhaseWeight = endgame_phase_weight(blackMaterialWithoutPawns)
+    
     # Your code goes here
 
      #fucntion to count legal moves for given color
