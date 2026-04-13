@@ -2,6 +2,7 @@
 team_alpha.py  —  Chess Bot using Minimax + Alpha-Beta Pruning
 Heuristic: Material value , 
     Piece-square tables, 
+    Piece mobility,
     King Safety, 
     Endgame mop-up,
     Move ordering
@@ -161,6 +162,11 @@ def KingSafety(board, color, endgamePhaseWeight) -> float:
         score -= 30 
     return score * (1-endgamePhaseWeight)
 
+def mobility_score(board, color):
+    temp = board.copy()
+    temp.turn = color
+    return len(list(temp.legal_moves))
+
 def endgame_phase_weight(material_count_withut_pawns) -> float:
     multiplier = 1 / endgame_material_start
     return 1 - min(1, material_count_withut_pawns * multiplier)
@@ -194,14 +200,14 @@ def evaluatePSTs(board, color, endgamePhaseWeight) -> int:
 def mopUpScore(FriendlyKingSq, EnemyKingSq, myMaterial, enemyMaterial, endgamePhaseWeight) -> int:
     eval = 0 
     if(myMaterial > enemyMaterial + PIECE_VALUES[chess.PAWN] * 2) and endgamePhaseWeight > 0:
-        eval += CENTER_MANHATTAN_DISTANCE[EnemyKingSq] * 10
+        eval += CENTER_MANHATTAN_DISTANCE[EnemyKingSq] * 15
         eval += (14 - chess.square_manhattan_distance(FriendlyKingSq,EnemyKingSq)) * 4
 
         return eval * endgamePhaseWeight
     
     return 0
 
-def repetition_score():
+def repetition_score(board):
     return 0
 
 def tt_key(board):
@@ -248,12 +254,16 @@ def evaluate(board: chess.Board) -> float:
 
     whiteMaterialWithoutPawns = whiteMaterial - len(board.pieces(chess.PAWN, chess.WHITE)) * PIECE_VALUES[chess.PAWN]
     blackMaterialWithoutPawns = blackMaterial - len(board.pieces(chess.PAWN, chess.BLACK)) * PIECE_VALUES[chess.PAWN]
+    
     whiteEndgamePhaseWeight = endgame_phase_weight(whiteMaterialWithoutPawns)
     blackEndgamePhaseWeight = endgame_phase_weight(blackMaterialWithoutPawns)
 
-
     whiteScore += whiteMaterial
     blackScore += blackMaterial
+
+    whiteScore += 2 * mobility_score(board, chess.WHITE)
+    blackScore += 2 * mobility_score(board, chess.BLACK)
+    
     whiteScore += mopUpScore(board.king(chess.WHITE),board.king(chess.BLACK), whiteMaterial,blackMaterial,whiteEndgamePhaseWeight)
     blackScore += mopUpScore(board.king(chess.BLACK),board.king(chess.WHITE), blackMaterial,whiteMaterial,blackEndgamePhaseWeight)
 
