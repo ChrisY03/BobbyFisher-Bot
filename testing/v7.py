@@ -1,8 +1,9 @@
 """
 team_alpha.py  —  Chess Bot using Minimax + Alpha-Beta Pruning
 Heuristic: Material value , 
-    Piece mobility, 
+    Piece-square tables, 
     King Safety, 
+    Endgame mop-up,
     Move ordering
 
 Install dependency:  pip install python-chess
@@ -149,7 +150,9 @@ def KingSafety(board, color, endgamePhaseWeight) -> float:
     else: score -= 7
     if king_sq in KING_CASTLE_POSITION:
         score += 30
-        if board.piece_type_at(ROOK_CASTLE_POSITION[king_sq]) and board.color_at(ROOK_CASTLE_POSITION[king_sq]):
+        rook_sq = ROOK_CASTLE_POSITION[king_sq]
+        rook_piece = board.piece_at(rook_sq)
+        if rook_piece and rook_piece.piece_type == chess.ROOK and rook_piece.color == color:
             score += 15
         for pawn_sq in PAWN_CASTLE_POSITION[king_sq]:
             if board.piece_type_at(pawn_sq) == chess.PAWN and board.color_at(pawn_sq) == color:
@@ -199,7 +202,7 @@ def mopUpScore(FriendlyKingSq, EnemyKingSq, myMaterial, enemyMaterial, endgamePh
     return 0
 
 def repetition_score():
-    return 
+    return 0
 
 def tt_key(board):
     return " ".join(board.fen().split()[:4])
