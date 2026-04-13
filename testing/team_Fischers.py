@@ -167,9 +167,9 @@ def mobility_score(board, color):
     temp.turn = color
     return len(list(temp.legal_moves))
 
-def endgame_phase_weight(material_count_withut_pawns) -> float:
+def endgame_phase_weight(material_count_without_pawns) -> float:
     multiplier = 1 / endgame_material_start
-    return 1 - min(1, material_count_withut_pawns * multiplier)
+    return 1 - min(1, material_count_without_pawns * multiplier)
 
 def get_pst_index(table, color, square) -> int:
     if color == chess.WHITE:
