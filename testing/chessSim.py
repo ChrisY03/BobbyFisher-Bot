@@ -1,6 +1,6 @@
 import chess
-from v4 import get_next_move as v4
-from v5 import get_next_move as cur
+from v5 import get_next_move as v5
+from v6 import get_next_move as cur
 
 
 
@@ -23,11 +23,11 @@ def play_match(bot_white, bot_black, depth, start_fen=None, max_plies=300):
     
 
 
-team_alphaV4 = v4
-team_alpha_curent = cur
+v5 = v5
+v6 = cur
 
 print("new model as white\n")
-print(play_match(cur,v4,3))
+print(play_match(cur,v5,3))
 
 print("new model as black\n")
-print(play_match(v4,cur,3))
+print(play_match(v5,cur,3))

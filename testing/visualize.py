@@ -26,8 +26,8 @@ import sys
 import os
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-DEPTH       = 2          # search depth — keep at 2 for fast moves; raise for stronger play
-MOVE_DELAY  = 1.2        # seconds between moves just for visualising
+DEPTH       = 4          # search depth — keep at 2 for fast moves; raise for stronger play
+MOVE_DELAY  = 0.01        # seconds between moves just for visualising
 SQUARE_SIZE = 72         # pixels per square
 BOARD_SIZE  = SQUARE_SIZE * 8
 
@@ -127,9 +127,9 @@ class ChessGUI:
                  font=("Arial", 13, "bold")).pack(pady=(8, 2))
 
         # Players
-        tk.Label(right, text=f"⬜  {self.name_white}  (White)", bg=BG, fg=TEXT_COL,
+        tk.Label(right, text=f"⬛  {self.name_white}  (White)", bg=BG, fg=TEXT_COL,
                  font=("Arial", 10)).pack()
-        tk.Label(right, text=f"⬛  {self.name_black}   (Black)", bg=BG, fg=TEXT_COL,
+        tk.Label(right, text=f"⬜  {self.name_black}   (Black)", bg=BG, fg=TEXT_COL,
                  font=("Arial", 10)).pack(pady=(0, 12))
 
         # Status label
@@ -250,10 +250,10 @@ class ChessGUI:
         current_color = self.board.turn
         if current_color == chess.WHITE:
             bot   = self.bot_white
-            label = f"⚪  {self.name_white} thinking…"
+            label = f"⚫  {self.name_white} thinking…"
         else:
             bot   = self.bot_black
-            label = f"⚫  {self.name_black} thinking…"
+            label = f"⚪  {self.name_black} thinking…"
 
         self.status_var.set(label)
         self.root.update_idletasks()   # flush the status label to screen NOW
@@ -536,9 +536,9 @@ class ColorDrawScreen:
             self.white_mod,  self.black_mod  = self.mod_b,  self.mod_a
             self.white_name, self.black_name = self.name_b, self.name_a
 
-        self.banner_var.set(
-            f"⬜ {self.white_name} plays WHITE   ·   "
-            f"⬛ {self.black_name} plays BLACK"
+        self.banner_var.set(    
+            f"⬛ {self.white_name} plays WHITE"
+            f"⬜ {self.black_name} plays BLACK   ·   "
         )
         self.draw_btn.config(state=tk.NORMAL,   text="🔄  Re-draw")
         self.start_btn.config(state=tk.NORMAL)
@@ -570,8 +570,8 @@ def main():
         sys.path.insert(0, script_dir)
 
     try:
-        team_alpha = importlib.import_module("v6")
-        team_beta  = importlib.import_module("v5")
+        team_alpha = importlib.import_module("v7")
+        team_beta  = importlib.import_module("v6")
     except ModuleNotFoundError as e:
         print(f"Error importing bot: {e}")
         print("Make sure team_alpha.py and team_beta.py are in the same folder as visualize.py")

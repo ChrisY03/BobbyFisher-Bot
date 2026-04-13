@@ -10,6 +10,12 @@ Install dependency:  pip install python-chess
 
 import chess
 
+TT = {}
+
+EXACT = 0
+LOWERBOUND = 1
+UPPERBOUND = 2
+
 PAWN_TABLE = [
       0,   0,   0,   0,   0,   0,   0,   0,
      50,  50,  50,  50,  50,  50,  50,  50,
@@ -87,6 +93,17 @@ KING_TABLE_END = [
     -50, -30, -30, -30, -30, -30, -30, -50,
 ]
 
+CENTER_MANHATTAN_DISTANCE = [
+    6, 5, 4, 3, 3, 4, 5, 6,
+    5, 4, 3, 2, 2, 3, 4, 5,
+    4, 3, 2, 1, 1, 2, 3, 4,
+    3, 2, 1, 0, 0, 1, 2, 3,
+    3, 2, 1, 0, 0, 1, 2, 3,
+    4, 3, 2, 1, 1, 2, 3, 4,
+    5, 4, 3, 2, 2, 3, 4, 5,
+    6, 5, 4, 3, 3, 4, 5, 6
+]
+
 # ── Piece values (centipawns) ─────────────────────────────────────────────────
 PIECE_VALUES = {
     chess.PAWN:   100,
@@ -121,7 +138,7 @@ ROOK_CASTLE_POSITION = {
 KING_CENTER_POSITION = {chess.WHITE : [chess.D1,chess.E1,chess.D2,chess.E2],
                         chess.BLACK : [chess.D7,chess.E7,chess.D8,chess.E8]}
 
-def KingSafety(board, color) -> float:
+def KingSafety(board, color, endgamePhaseWeight) -> float:
     score = 0
     king_sq = board.king(color)
     if board.has_queenside_castling_rights(color):
@@ -139,12 +156,12 @@ def KingSafety(board, color) -> float:
                 score += 5
     if king_sq in KING_CENTER_POSITION[color]:
         score -= 30 
-    return score
+    return score * (1-endgamePhaseWeight)
 
 def endgame_phase_weight(material_count_withut_pawns) -> float:
     multiplier = 1 / endgame_material_start
     return 1 - min(1, material_count_withut_pawns * multiplier)
-\
+
 def get_pst_index(table, color, square) -> int:
     if color == chess.WHITE:
         return table[square]
@@ -171,9 +188,41 @@ def evaluatePSTs(board, color, endgamePhaseWeight) -> int:
     value += (kingMid * (1-endgamePhaseWeight) + kingEnd * endgamePhaseWeight)
     return value
 
+def mopUpScore(FriendlyKingSq, EnemyKingSq, myMaterial, enemyMaterial, endgamePhaseWeight) -> int:
+    eval = 0 
+    if(myMaterial > enemyMaterial + PIECE_VALUES[chess.PAWN] * 2) and endgamePhaseWeight > 0:
+        eval += CENTER_MANHATTAN_DISTANCE[EnemyKingSq] * 10
+        eval += (14 - chess.square_manhattan_distance(FriendlyKingSq,EnemyKingSq)) * 4
+
+        return eval * endgamePhaseWeight
+    
+    return 0
 
 def repetition_score(board):
     return -50 if board.turn == chess.WHITE else 50
+
+def tt_key(board):
+    return " ".join(board.fen().split()[:4])
+
+def put_best_move_first(moves, best_move):
+    if best_move is None:
+        return moves
+    moves = list(moves)
+    if best_move in moves:
+        moves.remove(best_move)
+        moves.insert(0, best_move)
+    return moves
+
+def terminal_score(board, ply):
+    if board.is_checkmate():
+        return -99999 + ply if board.turn == chess.WHITE else 99999 - ply
+    if board.is_stalemate() or board.is_insufficient_material():
+        return 0
+    if board.is_repetition(3):
+        return repetition_score(board)
+    return None
+
+
 
 # ── Heuristic ─────────────────────────────────────────────────────────────────
 def evaluate(board: chess.Board) -> float:
@@ -184,16 +233,6 @@ def evaluate(board: chess.Board) -> float:
     Score > 0  =>  White is better.
     Score < 0  =>  Black is better.
     """
-
-
-
-
-    if board.is_checkmate():
-        # The side to move is in checkmate — they lose
-        return -99999 if board.turn == chess.WHITE else 99999
-    if board.is_stalemate() or board.is_insufficient_material() or board.is_repetition(3):
-        if board.turn == chess.WHITE: return -10
-        return 10
 
     whiteScore = 0
     blackScore = 0
@@ -212,20 +251,24 @@ def evaluate(board: chess.Board) -> float:
 
     whiteScore += whiteMaterial
     blackScore += blackMaterial
-
-
+    whiteScore += mopUpScore(board.king(chess.WHITE),board.king(chess.BLACK), whiteMaterial,blackMaterial,whiteEndgamePhaseWeight)
+    blackScore += mopUpScore(board.king(chess.BLACK),board.king(chess.WHITE), blackMaterial,whiteMaterial,blackEndgamePhaseWeight)
 
     whiteScore += evaluatePSTs(board, chess.WHITE, whiteEndgamePhaseWeight)
     blackScore += evaluatePSTs(board, chess.BLACK, blackEndgamePhaseWeight)
     
-    whiteScore += KingSafety(board, chess.WHITE) 
-    blackScore += KingSafety(board, chess.BLACK)
+    whiteScore += KingSafety(board, chess.WHITE, whiteEndgamePhaseWeight) 
+    blackScore += KingSafety(board, chess.BLACK, blackEndgamePhaseWeight)
 
     score = whiteScore - blackScore
     return score
 
 def orderMoves(board, moves, ply) -> list:
     scoreMoves=[]
+    key = tt_key(board)
+    entry = TT.get(key)
+    tt_move = None
+    if entry : tt_move = entry["best_move"]
     for move in moves:
         moveScore = 0
         movePieceType = board.piece_type_at(move.from_square)
@@ -249,6 +292,9 @@ def orderMoves(board, moves, ply) -> list:
         if move in Killer_Moves[ply] and not board.is_capture(move):
             moveScore += 200
         
+        if move == tt_move:
+            moveScore += 1000
+        
         #penalise moving pieces to square that is being attacked by oppenents pawn
         board.push(move)
         opponent = board.turn
@@ -267,32 +313,45 @@ def orderMoves(board, moves, ply) -> list:
     return [move for score, move in scoreMoves]
 
 def SearchAllCaptures(board, alpha, beta,ply) -> float:
-    if ply > 0 and board.is_repetition(2):
+    in_check = board.is_check()
+    if ply > 0 and board.is_repetition(3):
         return repetition_score(board)
+
     best = evaluate(board)
     captureMoves = []
 
-    if board.turn == chess.WHITE:
-        if(best >= beta):
-            return beta
-        alpha = max(alpha, best)
+    term = terminal_score(board, ply)
+    if term is not None:
+        return term
+    
+    if not in_check:
+        best = evaluate(board)
+
+        if board.turn == chess.WHITE:
+            if best >= beta:
+                return beta
+            alpha = max(alpha, best)
+        else:
+            if best <= alpha:
+                return alpha
+            beta = min(beta, best)
     else:
-        if(best <= alpha):
-            return alpha
-        beta = min(beta, best)
+        best = None
   
     for move in board.legal_moves:
-        if(board.is_capture(move)):
+        if in_check:
+            captureMoves.append(move)
+        elif board.is_capture(move) or move.promotion is not None:
             captureMoves.append(move)
 
     if not captureMoves:
-        return best
+        return evaluate(board) if in_check else best
 
     if board.turn == chess.WHITE:
         best = float('-inf')
         for move in orderMoves(board,captureMoves,ply):
             board.push(move)
-            best = max(best, SearchAllCaptures(board, alpha, beta,ply))
+            best = max(best, SearchAllCaptures(board, alpha, beta,ply+1))
             board.pop()
             alpha = max(alpha, best)
             if beta <= alpha:
@@ -302,7 +361,7 @@ def SearchAllCaptures(board, alpha, beta,ply) -> float:
         best = float('inf')
         for move in orderMoves(board,captureMoves,ply):
             board.push(move)
-            best = min(best, SearchAllCaptures(board, alpha, beta,ply))
+            best = min(best, SearchAllCaptures(board, alpha, beta,ply+1))
             board.pop()
             beta = min(beta, best)
             if beta <= alpha:
@@ -317,17 +376,43 @@ def minimax(board: chess.Board, depth: int,
     Standard Minimax search with Alpha-Beta cutoffs.
     maximizing=True means we are searching for the best move for White.
     """
+
+    term = terminal_score(board, ply)
+    if term is not None:
+        return term
+    
     if depth == 0 or board.is_game_over():
         return SearchAllCaptures(board,alpha,beta,ply)
     
     if ply > 0 and board.is_repetition(2):
         return repetition_score(board)
+    
+    key = tt_key(board)
+    alpha0 = alpha
+    beta0 = beta
+
+    entry = TT.get(key)
+    if entry is not None and entry["depth"] >= depth:
+        if entry["flag"] == EXACT:
+            return entry["score"]
+        elif entry["flag"] == LOWERBOUND:
+            alpha = max(alpha, entry["score"])
+        elif entry["flag"] == UPPERBOUND:
+            beta = min(beta, entry["score"])
+
+        if alpha>=beta:
+            return entry["score"]
+
 
     if maximizing:
         best = float('-inf')
+        best_move = None
         for move in orderMoves(board, board.legal_moves, ply):
             board.push(move)
-            best = max(best, minimax(board, depth - 1, alpha, beta, False, ply + 1))
+            score = minimax(board, depth - 1, alpha, beta, False, ply + 1)
+            if score > best:
+                best = score
+                best_move = move
             board.pop()
             alpha = max(alpha, best)
             if beta <= alpha:
@@ -336,12 +421,30 @@ def minimax(board: chess.Board, depth: int,
                         Killer_Moves[ply][1] = Killer_Moves[ply][0]
                     Killer_Moves[ply][0] = move
                 break       # Beta cutoff — opponent won't allow this path
+
+        if best <= alpha0:
+            flag = UPPERBOUND
+        elif best >= beta0:
+            flag = LOWERBOUND
+        else:
+            flag = EXACT
+
+        TT[key] = {
+            "depth": depth,
+            "score": best,
+            "flag": flag,
+            "best_move": best_move
+        }    
         return best
     else:
         best = float('inf')
+        best_move = None
         for move in orderMoves(board, board.legal_moves, ply):
             board.push(move)
-            best = min(best, minimax(board, depth - 1, alpha, beta, True, ply + 1))
+            score = minimax(board, depth - 1, alpha, beta, True, ply + 1)
+            if score < best:
+                best = score
+                best_move = move
             board.pop()
             beta = min(beta, best)
             if beta <= alpha:
@@ -350,6 +453,19 @@ def minimax(board: chess.Board, depth: int,
                         Killer_Moves[ply][1] = Killer_Moves[ply][0]
                     Killer_Moves[ply][0] = move
                 break       # Alpha cutoff
+        if best <= alpha0:
+            flag = UPPERBOUND
+        elif best >= beta0:
+            flag = LOWERBOUND
+        else:
+            flag = EXACT
+
+        TT[key] = {
+            "depth": depth,
+            "score": best,
+            "flag": flag,
+            "best_move": best_move
+        }  
         return best
 
 
@@ -357,27 +473,48 @@ def minimax(board: chess.Board, depth: int,
 def get_next_move(board: chess.Board,
                   color: chess.Color,
                   depth: int = 3) -> chess.Move:
-    """
-    Return the best move for `color` from the current `board` position.
-    DO NOT rename or change this signature — the harness calls it directly.
-    """
-    best_move  = None
     maximizing = (color == chess.WHITE)
-    best_score = float('-inf') if maximizing else float('inf')
+    best_move = None
+    b = board.copy()
 
-    b = board.copy()   # never modify the board passed in
-    for move in orderMoves(board, b.legal_moves,0):
-        b.push(move)
-        score = minimax(b, depth - 1,
-                        float('-inf'), float('inf'),
-                        not maximizing, 0)
-        b.pop()
+    TT.clear()
 
-        if maximizing and score > best_score:
-            best_score, best_move = score, move
-        elif not maximizing and score < best_score:
-            best_score, best_move = score, move
-    
+    for current_depth in range(1, depth + 1):
+        current_best_move = None
+        current_best_score = float('-inf') if maximizing else float('inf')
+
+        alpha = float('-inf')
+        beta = float('inf')
+
+        root_moves = orderMoves(b, list(b.legal_moves), 0)
+        root_moves = put_best_move_first(root_moves, best_move)
+
+        for move in root_moves:
+            b.push(move)
+            score = minimax(
+                b,
+                current_depth - 1,
+                alpha,
+                beta,
+                not maximizing,
+                1
+            )
+            b.pop()
+
+            if maximizing:
+                if score > current_best_score:
+                    current_best_score = score
+                    current_best_move = move
+                alpha = max(alpha, current_best_score)
+            else:
+                if score < current_best_score:
+                    current_best_score = score
+                    current_best_move = move
+                beta = min(beta, current_best_score)
+
+        if current_best_move is not None:
+            best_move = current_best_move
+
     return best_move
 
 
