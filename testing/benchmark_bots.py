@@ -4,7 +4,7 @@ import importlib
 # ── Config ────────────────────────────────────────────────────────────────
 CURRENT_BOT = "v7"
 BASELINE_BOT = "v6"
-DEPTH = 3
+DEPTH = 4
 MAX_PLIES = 200   # safety stop to avoid endless games
 
 # Use either:

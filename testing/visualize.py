@@ -26,7 +26,7 @@ import sys
 import os
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-DEPTH       = 4          # search depth — keep at 2 for fast moves; raise for stronger play
+DEPTH       = 4         # search depth — keep at 2 for fast moves; raise for stronger play
 MOVE_DELAY  = 0.01        # seconds between moves just for visualising
 SQUARE_SIZE = 72         # pixels per square
 BOARD_SIZE  = SQUARE_SIZE * 8

@@ -149,7 +149,7 @@ def KingSafety(board, color, endgamePhaseWeight) -> float:
     else: score -= 7
     if king_sq in KING_CASTLE_POSITION:
         score += 30
-        if board.piece_type_at(ROOK_CASTLE_POSITION[king_sq]):
+        if board.piece_type_at(ROOK_CASTLE_POSITION[king_sq]) and board.color_at(ROOK_CASTLE_POSITION[king_sq]):
             score += 15
         for pawn_sq in PAWN_CASTLE_POSITION[king_sq]:
             if board.piece_type_at(pawn_sq) == chess.PAWN and board.color_at(pawn_sq) == color:
@@ -198,8 +198,8 @@ def mopUpScore(FriendlyKingSq, EnemyKingSq, myMaterial, enemyMaterial, endgamePh
     
     return 0
 
-def repetition_score(board):
-    return -50 if board.turn == chess.WHITE else 50
+def repetition_score():
+    return 
 
 def tt_key(board):
     return " ".join(board.fen().split()[:4])
@@ -384,9 +384,7 @@ def minimax(board: chess.Board, depth: int,
     if depth == 0 or board.is_game_over():
         return SearchAllCaptures(board,alpha,beta,ply)
     
-    if ply > 0 and board.is_repetition(2):
-        return repetition_score(board)
-    
+
     key = tt_key(board)
     alpha0 = alpha
     beta0 = beta
@@ -478,6 +476,8 @@ def get_next_move(board: chess.Board,
     b = board.copy()
 
     TT.clear()
+    global Killer_Moves
+    Killer_Moves = [[None, None] for _ in range(MAX_PLY)]
 
     for current_depth in range(1, depth + 1):
         current_best_move = None
